@@ -1,65 +1,77 @@
-# external packages
 import pygetwindow as gw
 import customtkinter
 from customtkinter import CTkFont
 import pyautogui
 from pynput import keyboard
 import threading
-import time
 
-#global variables
-keypresscount = 0
+centerkeybindcount = 0
+centerkeybindneeded = 3
 screen_width, screen_height= pyautogui.size()
-centerkey = keyboard.Key.shift_r
+centerkeybind = keyboard.Key.shift_r
 powerswitch_state = "0"
 
 def set_keybind():
-    setkey_button.configure(text="set a new key")
+    setkey_button.configure(text="...")
 
     def on_keybind_press(key):
-        global centerkey
-        centerkey = key
+        global centerkeybind
+        centerkeybind = key
         setkey_button.configure(text=f"{key}")
         return False
     
     threading.Thread(target=lambda: keyboard.Listener(on_press=on_keybind_press).run(), daemon=True).start()
 
-#Set default key
-def setdefault():
-    global centerkey
-    centerkey = keyboard.Key.shift_r
+def set_keybind_presses():
+    timespressed_button.configure(text="...")
+
+    def on_number_press(key):
+        global centerkeybindneeded
+        try:
+            if hasattr(key, 'char') and key.char.isdigit():
+                centerkeybindneeded = int(key.char)
+                timespressed_button.configure(text=f"{centerkeybindneeded}")
+                return False
+        except Exception as e:
+            print(f"Error setting keybind presses: {e}")
+        return False 
+
+    threading.Thread(target=lambda: keyboard.Listener(on_press=on_number_press).run(), daemon=True).start()
+
+def set_default_keybinds():
+    global centerkeybind
+    global centerkeybindneeded
+    centerkeybind = keyboard.Key.shift_r
     setkey_button.configure(text="Key.shift_r")
+    centerkeybindneeded = 3
+    timespressed_button.configure(text="3")
 
-#centering function
-def on_press(key):
-    global keypresscount
 
-    # Check if the toggle is off
-    if powerswitch.get() == "0":  # If the toggle is off, do nothing
+def center_window(key):
+    global centerkeybindcount
+
+    if powerswitch.get() == "0":
         return
 
-    # Process the key press if the toggle is on
-    if key == centerkey:  # Check if the pressed key matches the keybind
-        keypresscount += 1
-        if keypresscount == 3:
-            window = gw.getActiveWindow()
-            if window:
-                window_width = window.width
-                window_height = window.height
+    if str(key) == str(centerkeybind):
+        centerkeybindcount += 1
+        if centerkeybindcount == centerkeybindneeded:
+            activewindow = gw.getActiveWindow()
+            if activewindow:
+                window_width = activewindow.width
+                window_height = activewindow.height
                 width = (screen_width - window_width) // 2
                 height = (screen_height - window_height) // 2
-                window.moveTo(width, height)
-            else:
-                print("No active window found!")
-            keypresscount = 0
+                activewindow.moveTo(width, height)
 
-# gui
+                centerkeybindcount = 0
+
 guiwindow = customtkinter.CTk()
 guiwindow.geometry("400x400")
 guiwindow.title("Window Centering Helper")
 guiwindow.resizable(False, False)
+guiwindow.iconbitmap("wchicon.ico")
 
-# Welcome text
 welcometext = customtkinter.CTkLabel(
     guiwindow,
     text="Configure Your Keybinds & Settings",
@@ -67,7 +79,6 @@ welcometext = customtkinter.CTkLabel(
 )
 welcometext.pack(pady=20)
 
-# Enable centering switch
 powerswitch = customtkinter.StringVar(value="1")
 powerswitchtoggle = customtkinter.CTkSwitch(
     guiwindow,
@@ -81,7 +92,6 @@ powerswitchtoggle = customtkinter.CTkSwitch(
 )
 powerswitchtoggle.pack(pady=20)
 
-# Keybind selector
 keybind_frame = customtkinter.CTkFrame(guiwindow)
 keybind_frame.pack(pady=20, padx=20, fill="x")
 
@@ -101,26 +111,42 @@ setkey_button = customtkinter.CTkButton(
 )
 setkey_button.pack(side="right", padx=10)
 
-setdefault = customtkinter.CTkButton(
-    guiwindow,
-    text="Reset to default",
-    command=setdefault,
+timespressed_frame = customtkinter.CTkFrame(guiwindow)
+timespressed_frame.pack(pady=20, padx=20, fill="x")
+
+timespressed_label = customtkinter.CTkLabel(
+    timespressed_frame,
+    text="Change times needed to center:",
+    font=CTkFont(size=16)
+)
+timespressed_label.pack(side="left", padx=10)
+
+timespressed_button = customtkinter.CTkButton(
+    timespressed_frame,
+    text="3",
+    command=set_keybind_presses,
     font=CTkFont(size=16),
     width=150
 )
-setdefault.pack()
+timespressed_button.pack(side="right", padx=10)
+
+set_default_keybinds = customtkinter.CTkButton(
+    guiwindow,
+    text="Reset to default",
+    command=set_default_keybinds,
+    font=CTkFont(size=16),
+    width=150
+)
+set_default_keybinds.pack()
 
 def start_listener():
     def run_listener():
-        with keyboard.Listener(on_press=on_press) as listener:
+        with keyboard.Listener(on_press=center_window) as listener:
             listener.join()
 
-    # Run the listener in a separate thread
     listener_thread = threading.Thread(target=run_listener, daemon=True)
     listener_thread.start()
 
-# Start the keyboard listener
 start_listener()
 
-# Keeping program running
 guiwindow.mainloop()
