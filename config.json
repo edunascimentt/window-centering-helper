@@ -1,1 +1,1 @@
-{"startup_state": "1", "powerswitch_state": "0", "centerkeybind": "'1'", "centerkeybindneeded": 5, "togglecentering": "1"}
+{"startup_state": "1", "powerswitch_state": "0", "centerkeybind": "Key.shift_r", "centerkeybindneeded": 3, "togglecentering": "1"}
